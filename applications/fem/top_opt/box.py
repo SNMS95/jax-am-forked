@@ -26,8 +26,8 @@ def topology_optimization():
     for f in files:
         os.remove(f)
 
-    Lx, Ly, Lz = 2., 0.5, 1.
-    Nx, Ny, Nz = 80, 20, 40
+    Lx, Ly, Lz = 1., 1, 1.
+    Nx, Ny, Nz = 3, 3, 3
 
     meshio_mesh = box_mesh(Nx, Ny, Nz, Lx, Ly, Lz, data_path)
     jax_mesh = Mesh(meshio_mesh.points, meshio_mesh.cells_dict['hexahedron'])
@@ -46,9 +46,14 @@ def topology_optimization():
 
     dirichlet_bc_info = [[fixed_location]*3, [0, 1, 2], [dirichlet_val]*3]
     neumann_bc_info = [[load_location], [neumann_val]]
-    problem = Elasticity(jax_mesh, vec=3, dim=3, dirichlet_bc_info=dirichlet_bc_info, neumann_bc_info=neumann_bc_info, additional_info=(problem_name,))
+    problem = Elasticity(jax_mesh, vec=3, dim=3, dirichlet_bc_info=dirichlet_bc_info,
+                         neumann_bc_info=neumann_bc_info, additional_info=(problem_name,))
+    # For TO, after normal FEm precomputations, a custom init is peformed inside teh elastciity class
+    # This just gives the proper mappign from the material properties to the stress, which
+    # will be used in the weak form 
     fwd_pred = ad_wrapper(problem, linear=True, use_petsc=False)
-
+    # fwd_pred receives parameters and sets them before performing teh forward solve
+        # i.e. Parameters -> Material properties -> Stress -> Find displacement (equilibrium)
     def J_fn(dofs, params):
         """J(u, p)
         """

@@ -100,7 +100,10 @@ def reorder_inds(inds, re_order):
 
 
 def get_shape_vals_and_grads(ele_type):
-    """TODO: Add comments
+    """
+    Function is used to compute the shape values, shape gradients, 
+    and quadrature weights for a given element type (reference element).
+
 
     Returns
     ------- 
@@ -112,8 +115,10 @@ def get_shape_vals_and_grads(ele_type):
         (8,) = (num_quads,)
     """
     element_family, basix_ele, basix_face_ele, gauss_order, degree, re_order = get_elements(ele_type)
+    # calculate quadrature points within cell and the weights for numerical integration
     quad_points, weights = basix.make_quadrature(basix_ele, gauss_order)  
     element = basix.create_element(element_family, basix_ele, degree)
+    # Calculate values and '1'st gradients at quadrature points
     vals_and_grads = element.tabulate(1, quad_points)[:, :, re_order, :]
     shape_values = vals_and_grads[0, :, :, 0]
     shape_grads_ref = onp.transpose(vals_and_grads[1:, :, :, 0], axes=(1, 2, 0))
@@ -122,7 +127,11 @@ def get_shape_vals_and_grads(ele_type):
 
 
 def get_face_shape_vals_and_grads(ele_type):
-    """TODO: Add comments
+    """function computes the shape values, shape gradients, 
+       quadrature weights, face normals, and face indices
+       for each face of a given element type. 
+
+    E.g. The faces of a HEX8 element are 'quad4'
 
     Returns
     ------- 
@@ -141,10 +150,10 @@ def get_face_shape_vals_and_grads(ele_type):
 
     # TODO: Check if this is correct.
     points, weights = basix.make_quadrature(basix_face_ele, gauss_order)
-
+    # Surya : Does 'map_degree' matter ? 
     map_degree = 1
     lagrange_map = basix.create_element(basix.ElementFamily.P, basix_face_ele, map_degree)
-    values = lagrange_map.tabulate(0, points)[0, :, :, 0]
+    values = lagrange_map.tabulate(0, points)[0, :, :, 0] # Only need face values and not gradients
     vertices = basix.geometry(basix_ele)
     dim = len(vertices[0])
     facets = basix.cell.sub_entity_connectivity(basix_ele)[dim - 1] 

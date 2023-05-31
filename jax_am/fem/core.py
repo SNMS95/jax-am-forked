@@ -105,7 +105,7 @@ class FEM:
         self.shape_grads, self.JxW = self.get_shape_grads()
 
         self.node_inds_list, self.vec_inds_list, self.vals_list = self.Dirichlet_boundary_conditions(self.dirichlet_bc_info)
-        self.p_node_inds_list_A, self.p_node_inds_list_B, self.p_vec_inds_list = self.periodic_boundary_conditions()
+        # self.p_node_inds_list_A, self.p_node_inds_list_B, self.p_vec_inds_list = self.periodic_boundary_conditions()
 
         # (num_cells, num_quads, num_nodes, 1, dim)
         self.v_grads_JxW = self.shape_grads[:, :, :, None, :] * self.JxW[:, :, None, None, None]
@@ -114,8 +114,8 @@ class FEM:
         compute_time = end - start
 
         self.internal_vars = {}
-        self.compute_Neumann_boundary_inds()
-        self.body_force = self.compute_body_force_by_fn()
+        self.compute_Neumann_boundary_inds() # Surya: Isn't the indice finding similar to the one in Dirichlet BC ?
+        self.body_force = self.compute_body_force_by_fn() # Surya: Will this function be useful for us ?
 
         print(f"Done pre-computations, took {compute_time} [s]")
         print(f"Solving a problem with {len(self.cells)} cells, {self.num_total_nodes}x{self.vec} = {self.num_total_dofs} dofs.")
@@ -128,11 +128,11 @@ class FEM:
         pass
 
     def get_shape_grads(self):
-        """Compute shape function gradient value
-        The gradient is w.r.t physical coordinates.
+        """Convert reference cell shape gradients into physical coordinates.
         See Hughes, Thomas JR. The finite element method: linear static and dynamic finite element analysis. Courier Corporation, 2012.
         Page 147, Eq. (3.9.3)
-        
+        ToDo: 1. JxW takes up memory and it seems duplicated. Maybe we can store it in a better way!
+              2. ...
         Returns
         -------
         shape_grads_physical : onp.ndarray
@@ -364,7 +364,7 @@ class FEM:
 
     def compute_body_force_by_fn(self):
         """In the weak form, we have (body_force, v) * dx, and this function computes this
-
+        Surya: Can this be used to solve self weight TO problems?
         Returns
         -------
         body_force: np.DeviceArray
@@ -658,5 +658,5 @@ class FEM:
     def compute_residual(self, sol):
         return self.compute_residual_vars(sol, **self.internal_vars)
 
-    def newton_update(self, sol):
+    def newton_update(self, sol): # Internal_vars have the updated parameters already [laplace]
         return self.compute_newton_vars(sol, **self.internal_vars)
