@@ -103,8 +103,8 @@ class Elasticity(FEM):
         full_params = np.ones((self.num_cells, params.shape[1]))
         full_params = full_params.at[self.flex_inds].set(params)
         thetas = np.repeat(full_params[:, None, :], self.num_quads, axis=1)
-        self.full_params = full_params
-        self.internal_vars['laplace'] = [thetas]
+        self.full_params = full_params # (n_cells, n_quads_per_cell, 1)
+        self.internal_vars['laplace'] = [thetas] # The above two lines are interesting! - Need to document
 
     def compute_compliance(self, neumann_fn, sol):
         boundary_inds = self.neumann_boundary_inds_list[0]

@@ -68,7 +68,7 @@ def row_elimination(res_fn, problem):
     return fn_dofs_row
 
 
-def assign_bc(dofs, problem):
+def assign_bc(dofs, problem): # Sets the boundary values to the displacement vector
     sol = dofs.reshape((problem.num_total_nodes, problem.vec))
     for i in range(len(problem.node_inds_list)):
         sol = sol.at[problem.node_inds_list[i], problem.vec_inds_list[i]].set(problem.vals_list[i])
@@ -224,7 +224,7 @@ def solver_row_elimination(problem, linear, precond, initial_guess, use_petsc):
 
     # TODO: detect np.nan and assert
     if linear:
-        dofs = assign_bc(dofs, problem)
+        dofs = assign_bc(dofs, problem) # Update Dirichlet B.C info into the displacment vector
         res_vec, A_fn = newton_update_helper(dofs)
         dofs = linear_incremental_solver(problem, res_vec, A_fn, dofs, precond, use_petsc)
     else:
@@ -529,6 +529,12 @@ def implicit_vjp(problem, sol, params, v):
 
 
 def ad_wrapper(problem, linear=False, use_petsc=False):
+    """ Automatic differentiation wrapper for the solver.
+    This uses the implicit function theorem to propagate gradients
+    backwards.
+    ToDo: Surya: Need to add whetehr to choose preconditioner to this function
+            Solver has more arguments!    
+    """
     @jax.custom_vjp
     def fwd_pred(params):
         problem.set_params(params)
