@@ -412,7 +412,7 @@ class FEM:
             u_grads = cell_sol[None, :, :, None] * cell_shape_grads[:, :, None, :] 
             u_grads = np.sum(u_grads, axis=1) # (num_quads, vec, dim)
             u_grads_reshape = u_grads.reshape(-1, self.vec, self.dim) # (num_quads, vec, dim) 
-            # (num_quads, vec, dim) 
+            # (num_quads, vec, dim)  # Surya: this should be sigma right?
             u_physics = jax.vmap(tensor_map)(u_grads_reshape, *cell_internal_vars).reshape(u_grads.shape) 
             # (num_quads, num_nodes, vec, dim) -> (num_nodes, vec) -> (num_nodes, vec)
             val = np.sum(u_physics[:, None, :, :] * cell_v_grads_JxW, axis=(0, -1))
@@ -439,7 +439,7 @@ class FEM:
             return val
         return cauchy_kernel
 
-    def unpack_kernels_vars(self, **internal_vars):
+    def unpack_kernels_vars(self, **internal_vars): # Just creates list of values from dictionary
         if 'mass' in internal_vars.keys():
             mass_internal_vars = internal_vars['mass']
         else:
@@ -487,7 +487,7 @@ class FEM:
 
             return kernel, kernel_jac
 
-        kernel, kernel_jac = get_kernel_fn_cell()
+        kernel, kernel_jac = get_kernel_fn_cell() # Returns the 
         fn = kernel_jac if jac_flag else kernel
         vmap_fn = jax.jit(jax.vmap(fn))
         kernal_vars = self.unpack_kernels_vars(**internal_vars)
@@ -500,7 +500,7 @@ class FEM:
         if jac_flag:
             values = []
             jacs = []
-            for i in range(num_cuts):
+            for i in range(num_cuts): # S:For each cell compute the values and jacobian, is this jitting properly?
                 if i < num_cuts - 1:
                     input_col = jax.tree_map(lambda x: x[i*batch_size:(i + 1)*batch_size], input_collection)
                 else:
@@ -622,7 +622,7 @@ class FEM:
         self.neumann = self.compute_Neumann_integral_vars(**internal_vars)    
 
         res = res - self.body_force - self.neumann
-        return res
+        return res # Residual 
 
     def compute_residual_vars(self, sol, **internal_vars):
         print(f"Compute cell residual...")
@@ -637,7 +637,7 @@ class FEM:
         weak_form, cells_jac = self.split_and_compute_cell(cells_sol, onp, True, **internal_vars)
         V = cells_jac.reshape(-1)
         inds = (self.vec * self.cells[:, :, None] + onp.arange(self.vec)[None, None, :]).reshape(len(self.cells), -1)
-        I = onp.repeat(inds[:, :, None], self.num_nodes*self.vec, axis=2).reshape(-1)
+        I = onp.repeat(inds[:, :, None], self.num_nodes*self.vec, axis=2).reshape(-1) # S: ??
         J = onp.repeat(inds[:, None, :], self.num_nodes*self.vec, axis=1).reshape(-1)
         self.I = I
         self.J = J
