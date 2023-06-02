@@ -104,7 +104,6 @@ def get_shape_vals_and_grads(ele_type):
     Function is used to compute the shape values, shape gradients, 
     and quadrature weights for a given element type (reference element).
 
-
     Returns
     ------- 
     shape_values: ndarray

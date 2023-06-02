@@ -186,3 +186,53 @@ def cylinder_mesh(data_dir, R=5, H=10, circle_mesh=5, hight_mesh=20, rect_ratio=
 
     out_mesh = meshio.Mesh(points=points, cells={'hexahedron': cells})
     return out_mesh
+
+
+def create_2d_mesh(Nx, Ny, Lx, Ly, data_dir, ele_type='QUAD4'):
+    """
+    Surya : created by me, not tested! - results in 3d points with z=0
+    References:
+    https://gitlab.onelab.info/gmsh/gmsh/-/blob/master/examples/api/hex.py
+    https://gitlab.onelab.info/gmsh/gmsh/-/blob/gmsh_4_7_1/tutorial/python/t1.py
+    https://gitlab.onelab.info/gmsh/gmsh/-/blob/gmsh_4_7_1/tutorial/python/t3.py
+    """
+
+    assert ele_type != 'HEX20', f"gmsh cannot produce HEX20 mesh?"
+
+    cell_type = get_meshio_cell_type(ele_type)
+    _, _, _, _, degree, _ = get_elements(ele_type)
+
+    msh_dir = os.path.join(data_dir, 'msh')
+    os.makedirs(msh_dir, exist_ok=True)
+    msh_file = os.path.join(msh_dir, '2d.msh')
+
+    offset_x = 0.
+    offset_y = 0.
+    domain_x = Lx
+    domain_y = Ly
+
+    gmsh.initialize()
+    gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)  # save in old MSH format
+    if cell_type.startswith('tetra'):
+        Rec2d = False  # tris or quads
+        Rec3d = False  # tets, prisms or hexas
+    else:
+        Rec2d = True
+        Rec3d = True
+    # create point, extrude to a line, extrude to a surface (as in CAD)
+    p = gmsh.model.geo.addPoint(offset_x, offset_y, 0.0)
+    l = gmsh.model.geo.extrude([(0, p)], domain_x, 0, 0, [Nx], [1])
+    s = gmsh.model.geo.extrude([l[1]], 0, domain_y, 0, [Ny], [1], recombine=Rec2d)
+
+    gmsh.model.geo.synchronize()
+    gmsh.model.mesh.generate(2)
+    gmsh.model.mesh.setOrder(degree)
+    gmsh.write(msh_file)
+    gmsh.finalize()
+      
+    mesh = meshio.read(msh_file)
+    points = mesh.points # (num_total_nodes, dim)
+    cells =  mesh.cells_dict[cell_type] # (num_cells, num_nodes)
+    out_mesh = meshio.Mesh(points=points, cells={cell_type: cells})
+
+    return out_mesh

@@ -38,7 +38,7 @@ def jax_solve(problem, A_fn, b, x0, precond):
 ################################################################################
 # "row elimination" solver
 
-def apply_bc_vec(res_vec, dofs, problem):
+def apply_bc_vec(res_vec, dofs, problem): # S: could be jitted
     sol = dofs.reshape((problem.num_total_nodes, problem.vec))
     res = res_vec.reshape(sol.shape)
     for i in range(len(problem.node_inds_list)):
