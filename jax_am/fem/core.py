@@ -115,7 +115,7 @@ class FEM:
 
         self.internal_vars = {}
         self.compute_Neumann_boundary_inds() # Surya: Isn't the indice finding similar to the one in Dirichlet BC ?
-        self.body_force = self.compute_body_force_by_fn() # Surya: Will this function be useful for us ?
+        self.body_force = self.compute_body_force_by_fn() # At all nodes
 
         print(f"Done pre-computations, took {compute_time} [s]")
         print(f"Solving a problem with {len(self.cells)} cells, {self.num_total_nodes}x{self.vec} = {self.num_total_dofs} dofs.")
@@ -487,7 +487,7 @@ class FEM:
 
             return kernel, kernel_jac
 
-        kernel, kernel_jac = get_kernel_fn_cell() # Returns the 
+        kernel, kernel_jac = get_kernel_fn_cell() # Returns the first term value and its jacobian
         fn = kernel_jac if jac_flag else kernel
         vmap_fn = jax.jit(jax.vmap(fn))
         kernal_vars = self.unpack_kernels_vars(**internal_vars)
@@ -608,7 +608,7 @@ class FEM:
     def compute_residual_vars_helper(self, sol, weak_form, **internal_vars):
         res = np.zeros((self.num_total_nodes, self.vec))
         weak_form = weak_form.reshape(-1, self.vec) # (num_cells*num_nodes, vec)
-        res = res.at[self.cells.reshape(-1)].add(weak_form) 
+        res = res.at[self.cells.reshape(-1)].add(weak_form) # Add part 1 of the PDE
 
         if self.cauchy_bc_info is not None:
             cells_sol = sol[self.cells]
@@ -616,11 +616,11 @@ class FEM:
             values = values.reshape(-1, self.vec)
             res = res.at[selected_cells.reshape(-1)].add(values) 
 
-        if 'body_vars' in internal_vars.keys():
+        if 'body_vars' in internal_vars.keys(): # part 3 of the PDE
             self.body_force = self.compute_body_force_by_sol(internal_vars['body_vars'], self.get_body_map())
 
         self.neumann = self.compute_Neumann_integral_vars(**internal_vars)    
-
+        # part 2 of the PDE
         res = res - self.body_force - self.neumann
         return res # Residual 
 
@@ -635,12 +635,12 @@ class FEM:
         cells_sol = sol[self.cells] # (num_cells, num_nodes, vec)
         # (num_cells, num_nodes, vec), (num_cells, num_nodes, vec, num_nodes, vec)
         weak_form, cells_jac = self.split_and_compute_cell(cells_sol, onp, True, **internal_vars)
-        V = cells_jac.reshape(-1)
+        V = cells_jac.reshape(-1) # global stiffness matrix's values
         inds = (self.vec * self.cells[:, :, None] + onp.arange(self.vec)[None, None, :]).reshape(len(self.cells), -1)
-        I = onp.repeat(inds[:, :, None], self.num_nodes*self.vec, axis=2).reshape(-1) # S: ??
+        I = onp.repeat(inds[:, :, None], self.num_nodes*self.vec, axis=2).reshape(-1)
         J = onp.repeat(inds[:, None, :], self.num_nodes*self.vec, axis=1).reshape(-1)
-        self.I = I
-        self.J = J
+        self.I = I # the i indices which are non-zero
+        self.J = J # the j indices which are non-zero
         self.V = V
 
         if self.cauchy_bc_info is not None:

@@ -1,3 +1,10 @@
+"""Solve the poisson equation in 2D using JAX-FEM.
+Assume a unit square domain with left and right lines with Dirichlet B.C
+Top and bottom with Neuman BC
+Include a body force (source term) - b
+See : 
+https://github.com/SNMS95/jax-am-forked/blob/main/demos/fem/poisson/README.md
+"""
 import jax
 import jax.numpy as np
 import os
@@ -17,7 +24,7 @@ class Poisson(FEM):
 ele_type = 'QUAD4'
 cell_type = get_meshio_cell_type(ele_type)
 Lx, Ly = 1., 1.
-meshio_mesh = rectangle_mesh(Nx=32, Ny=32, domain_x=Lx, domain_y=Ly)
+meshio_mesh = rectangle_mesh(Nx=2, Ny=2, domain_x=Lx, domain_y=Ly)
 mesh = Mesh(meshio_mesh.points, meshio_mesh.cells_dict[cell_type])
 
 def left(point):
@@ -53,8 +60,8 @@ def body_force(point):
 
 problem = Poisson(mesh=mesh, vec=1, dim=2, ele_type=ele_type, dirichlet_bc_info=dirichlet_bc_info, 
     neumann_bc_info=neumann_bc_info, source_info=body_force)
-sol = solver(problem, linear=True, use_petsc=True)
+sol = solver(problem, linear=True, use_petsc=False)
 
-data_dir = os.path.join(os.path.dirname(__file__), 'data')
-vtk_path = os.path.join(data_dir, f'vtk/u.vtu')
-save_sol(problem, sol, vtk_path)
+# data_dir = os.path.join(os.path.dirname(__file__), 'data')
+# vtk_path = os.path.join(data_dir, f'vtk/u.vtu')
+# save_sol(problem, sol, vtk_path)
