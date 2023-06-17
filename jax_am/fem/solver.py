@@ -218,7 +218,7 @@ def solver_row_elimination(problem, linear, precond, initial_guess, use_petsc):
 
     def newton_update_helper(dofs):
         res_vec = problem.newton_update(dofs.reshape(sol_shape)).reshape(-1)
-        res_vec = apply_bc_vec(res_vec, dofs, problem)
+        res_vec = apply_bc_vec(res_vec, dofs, problem) # Assign DBC
         A_fn = get_A_fn(problem, use_petsc)
         return res_vec, A_fn
 
