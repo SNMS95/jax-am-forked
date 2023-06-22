@@ -9,6 +9,7 @@ from jax_am.fem.generate_mesh import Mesh
 from jax_am.fem.solver import ad_wrapper
 from jax_am.fem.utils import save_sol
 from jax_am.common import rectangle_mesh
+from jax.scipy.optimize import minimize
 
 from fem_model import Elasticity
 
@@ -106,14 +107,18 @@ def objectiveHandle(rho):
 params = vf * np.ones((len(problem.flex_inds), 1))
 print(f'Initial compliance is: {J_total(params):.5e}')
 
-# # First let's see if the function can be jitted
-solver = jaxopt.LBFGS(fun=objectiveHandle,
-                      value_and_grad=True,
-                      has_aux=False,
-                      jit=False,)
+# # # First let's see if the function can be jitted
+# solver = jaxopt.LBFGS(fun=objectiveHandle,
+#                       value_and_grad=True,
+#                       has_aux=False,
+#                       jit=False,)
 
-# Trainiting loop
-opt_state = solver.init_state(params)
+params = vf * np.ones((len(problem.flex_inds), 1))
+res = minimize(fun=objectiveHandle, x0=params, method='BFGS', options={'maxiter':10})
 
-for _ in range(2):
-    params, opt_state = solver.update(params=params, state=opt_state)
+print(res.fun)
+#Trainiting loop
+# opt_state = solver.init_state(params)
+
+# for _ in range(2):
+#     params, opt_state = solver.update(params=params, state=opt_state)
