@@ -17,14 +17,14 @@ from petsc4py import PETSc
 def petsc_solve(A, b, ksp_type, pc_type):
     rhs = PETSc.Vec().createSeq(len(b))
     rhs.setValues(range(len(b)), onp.array(b))
-    ksp = PETSc.KSP().create() 
+    ksp = PETSc.KSP().create()
     ksp.setOperators(A)
     ksp.setFromOptions()
     ksp.setType(ksp_type)
     ksp.pc.setType(pc_type)
-    print (f'PETSc - Solving with ksp_type = {ksp.getType()}, pc = {ksp.pc.getType()}') 
+    print (f'PETSc - Solving with ksp_type = {ksp.getType()}, pc = {ksp.pc.getType()}')
     x = PETSc.Vec().createSeq(len(b))
-    ksp.solve(rhs, x) 
+    ksp.solve(rhs, x)
     return x.getArray()
 
 
@@ -74,7 +74,7 @@ def assign_bc(dofs, problem): # Sets the boundary values to the displacement vec
         sol = sol.at[problem.node_inds_list[i], problem.vec_inds_list[i]].set(problem.vals_list[i])
     return sol.reshape(-1)
 
- 
+
 def assign_ones_bc(dofs, problem):
     sol = dofs.reshape((problem.num_total_nodes, problem.vec))
     for i in range(len(problem.node_inds_list)):
@@ -86,7 +86,7 @@ def copy_bc(dofs, problem):
     sol = dofs.reshape((problem.num_total_nodes, problem.vec))
     new_sol = np.zeros_like(sol)
     for i in range(len(problem.node_inds_list)):
-        new_sol = (new_sol.at[problem.node_inds_list[i], problem.vec_inds_list[i]].set(sol[problem.node_inds_list[i], 
+        new_sol = (new_sol.at[problem.node_inds_list[i], problem.vec_inds_list[i]].set(sol[problem.node_inds_list[i],
             problem.vec_inds_list[i]]))
     return new_sol.reshape(-1)
 
@@ -109,10 +109,10 @@ def get_A_fn_linear_fn(dofs, fn):
 
 
 def get_A_fn_linear_fn_JFNK(dofs, fn):
-    """Jacobian-free Newton–Krylov (JFNK) method. 
+    """Jacobian-free Newton–Krylov (JFNK) method.
     Not quite used since we have auto diff to compute exact JVP.
-    Knoll, Dana A., and David E. Keyes. 
-    "Jacobian-free Newton–Krylov methods: a survey of approaches and applications." 
+    Knoll, Dana A., and David E. Keyes.
+    "Jacobian-free Newton–Krylov methods: a survey of approaches and applications."
     Journal of Computational Physics 193.2 (2004): 357-397.
     """
     def A_fn_linear_fn(inc):
@@ -132,7 +132,7 @@ def operator_to_matrix(operator_fn, problem):
 def jacobi_preconditioner(problem):
     print(f"Compute and use jacobi preconditioner")
     jacobi = np.array(problem.A_sp_scipy.diagonal())
-    jacobi = assign_ones_bc(jacobi.reshape(-1), problem) 
+    jacobi = assign_ones_bc(jacobi.reshape(-1), problem)
     return jacobi
 
 
@@ -152,7 +152,7 @@ def test_jacobi_precond(problem, jacobi, A_fn):
     print(f"test jacobi preconditioner")
     print(f"np.min(jacobi) = {np.min(jacobi)}, np.max(jacobi) = {np.max(jacobi)}")
     print(f"finish jacobi preconditioner")
- 
+
 
 def linear_guess_solve(problem, A_fn, precond, use_petsc):
     print(f"Linear guess solve...")
@@ -175,7 +175,7 @@ def linear_incremental_solver(problem, res_vec, A_fn, dofs, precond, use_petsc):
     if use_petsc:
         inc = petsc_solve(A_fn, b, 'bcgsl', 'ilu')
     else:
-        x0_1 = assign_bc(np.zeros_like(b), problem) 
+        x0_1 = assign_bc(np.zeros_like(b), problem)
         x0_2 = copy_bc(dofs, problem)
         x0 = x0_1 - x0_2
         inc = jax_solve(problem, A_fn, b, x0, precond)
@@ -216,7 +216,7 @@ def solver_row_elimination(problem, linear, precond, initial_guess, use_petsc):
     sol_shape = (problem.num_total_nodes, problem.vec)
     dofs = np.zeros(sol_shape).reshape(-1)
 
-    def newton_update_helper(dofs):
+    def newton_update_helper(dofs):# shape=(num_nodes_total, )
         res_vec = problem.newton_update(dofs.reshape(sol_shape)).reshape(-1)
         res_vec = apply_bc_vec(res_vec, dofs, problem) # Assign DBC
         A_fn = get_A_fn(problem, use_petsc)
@@ -237,15 +237,15 @@ def solver_row_elimination(problem, linear, precond, initial_guess, use_petsc):
 
         res_vec, A_fn = newton_update_helper(dofs)
         res_val = np.linalg.norm(res_vec)
-        print(f"Before, res l_2 = {res_val}") 
+        print(f"Before, res l_2 = {res_val}")
         tol = 1e-6
         while res_val > tol:
             dofs = linear_incremental_solver(problem, res_vec, A_fn, dofs, precond, use_petsc)
             res_vec, A_fn = newton_update_helper(dofs)
             # test_jacobi_precond(problem, jacobi_preconditioner(problem, dofs), A_fn)
             res_val = np.linalg.norm(res_vec)
-            print(f"res l_2 = {res_val}") 
-            
+            print(f"res l_2 = {res_val}")
+
     sol = dofs.reshape(sol_shape)
     end = time.time()
     solve_time = end - start
@@ -325,7 +325,7 @@ def compute_residual_lm(problem, res_vec, dofs_aug, p_num_eps):
                 lag += np.sum(d_lmbda_split[i] * (sol[problem.node_inds_list[i], problem.vec_inds_list[i]] - problem.vals_list[i]))
 
             for i in range(len(problem.p_node_inds_list_A)):
-                lag += np.sum(p_lmbda_split[i] * (sol[problem.p_node_inds_list_A[i], problem.p_vec_inds_list[i]] - 
+                lag += np.sum(p_lmbda_split[i] * (sol[problem.p_node_inds_list_A[i], problem.p_vec_inds_list[i]] -
                                                     sol[problem.p_node_inds_list_B[i], problem.p_vec_inds_list[i]]))
             return p_num_eps*lag
 
@@ -401,11 +401,11 @@ def get_A_fn_and_res_aug(problem, dofs_aug, res_vec, p_num_eps, use_petsc):
 def solver_lagrange_multiplier(problem, linear, use_petsc=True):
     """Imposing Dirichlet B.C. and periodic B.C. with lagrangian multiplier method.
 
-    The global matrix is of the form 
-    [A   B 
+    The global matrix is of the form
+    [A   B
      B^T 0]
     JAX built solver gmres and bicgstab sometimes fail to solve such a system.
-    PESTc solver minres seems to work. 
+    PESTc solver minres seems to work.
     TODO: explore which solver in PESTc is the best, and which preconditioner should be used.
 
     Reference:
@@ -442,13 +442,13 @@ def solver_lagrange_multiplier(problem, linear, use_petsc=True):
 
         res_vec_aug, A_aug = newton_update_helper(dofs_aug)
         res_val = np.linalg.norm(res_vec_aug)
-        print(f"Before, res l_2 = {res_val}") 
+        print(f"Before, res l_2 = {res_val}")
         tol = 1e-6
         while res_val > tol:
             dofs_aug = linear_incremental_solver_lm(problem, A_aug, res_vec_aug, dofs_aug, p_num_eps, use_petsc)
             res_vec_aug, A_aug = newton_update_helper(dofs_aug)
             res_val = np.linalg.norm(res_vec_aug)
-            print(f"res l_2 dofs_aug = {res_val}") 
+            print(f"res l_2 dofs_aug = {res_val}")
 
     sol = dofs_aug[:problem.num_total_dofs].reshape(sol_shape)
     end = time.time()
@@ -464,7 +464,7 @@ def solver_lagrange_multiplier(problem, linear, use_petsc=True):
 # General
 
 def solver(problem, linear=False, precond=True, initial_guess=None, use_petsc=False):
-    """periodic B.C. is a special form of adding a linear constraint. 
+    """periodic B.C. is a special form of adding a linear constraint.
     Lagrange multiplier seems to be convenient to impose this constraint.
     """
     # TODO: print platform jax.lib.xla_bridge.get_backend().platform
@@ -533,21 +533,21 @@ def ad_wrapper(problem, linear=False, use_petsc=False):
     This uses the implicit function theorem to propagate gradients
     backwards.
     ToDo: Surya: Need to add whetehr to choose preconditioner to this function
-            Solver has more arguments!    
+            Solver has more arguments!
     """
     @jax.custom_vjp
     def fwd_pred(params):
         problem.set_params(params)
         sol = solver(problem, linear=linear, use_petsc=use_petsc)
         return sol
- 
+
     def f_fwd(params):
         sol = fwd_pred(params)
         return sol, (params, sol)
 
     def f_bwd(res, v):
         print("\nRunning backward...")
-        params, sol = res 
+        params, sol = res
         vjp_result = implicit_vjp(problem, sol, params, v)
         return (vjp_result,)
 

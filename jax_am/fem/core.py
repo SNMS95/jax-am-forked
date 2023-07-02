@@ -700,10 +700,10 @@ class FEM:
 
     def compute_newton_vars(self, sol, **internal_vars):
         print(f"Compute cell Jacobian and cell residual...")
-        cells_sol = sol[self.cells] # (num_cells, num_nodes, vec)
+        cells_sol = sol[self.cells] # (num_cells, num_nodes, vec) -> cell-wise solutions
         # (num_cells, num_nodes, vec), (num_cells, num_nodes, vec, num_nodes, vec)
         weak_form, cells_jac = self.split_and_compute_cell(cells_sol, onp, True, **internal_vars)
-        V = cells_jac.reshape(-1) # global stiffness matrix's values
+        V = cells_jac.reshape(-1) # global stiffness matrix's non-zero values
         inds = (self.vec * self.cells[:, :, None] + onp.arange(self.vec)[None, None, :]).reshape(len(self.cells), -1)
         I = onp.repeat(inds[:, :, None], self.num_nodes*self.vec, axis=2).reshape(-1)
         J = onp.repeat(inds[:, None, :], self.num_nodes*self.vec, axis=1).reshape(-1)
