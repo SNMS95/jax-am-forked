@@ -178,7 +178,6 @@ class FEM:
         # But for each location, it lists the local face number of cells
         # that are part of the surface
         self.compute_Neumann_boundary_inds()
-        self.body_force = self.compute_body_force_by_fn() # At all nodes
 
         print(f"Done pre-computations, took {compute_time} [s]")
         print(f"""Solving a problem with {len(self.cells)} cells,
@@ -376,7 +375,8 @@ class FEM:
         -------
         boundary_inds_list : List[onp.ndarray]
             (num_selected_faces, 2)
-            boundary_inds_list[k][i, j] returns the index of face j of cell i of surface k
+            boundary_inds_list[k][i, 0] returns the global cell index of the ith selected face of boundary subset k
+            boundary_inds_list[k][i, 1] returns the local face index of the ith selected face of boundary subset k
         """
         cell_points = onp.take(self.points, self.cells, axis=0) # (num_cells, num_nodes, dim)
         cell_face_points = onp.take(cell_points, self.face_inds, axis=1) # (num_cells, num_faces, num_face_nodes, dim)
@@ -403,8 +403,8 @@ class FEM:
         integral = np.zeros((self.num_total_nodes, self.vec))
         if self.neumann_bc_info is not None:
             for i, boundary_inds in enumerate(self.neumann_boundary_inds_list):
-                if 'neumann_vars' in internal_vars.keys():
-                    int_vars = internal_vars['neumann_vars'][i]
+                if 'neumann' in internal_vars.keys():
+                    int_vars = internal_vars['neumann'][i]
                 else:
                     int_vars = ()
                 # (num_cells, num_faces, num_face_quads, dim) -> (num_selected_faces, num_face_quads, dim)
@@ -673,6 +673,25 @@ class FEM:
         u = np.sum(selected_cell_sols[:, None, :, :] * selected_face_shape_vals[:, :, :, None], axis=2)
         return u
 
+    def sol_to_grad(self, sol):
+        """Obtain solution gradient from nodal solution
+
+        Parameters
+        ----------
+        sol : np.DeviceArray
+            (num_total_nodes, vec)
+        index : int
+
+        Returns
+        -------
+        u_grads : np.DeviceArray
+            (num_cells, num_quads, vec, dim)
+        """
+        # (num_cells, 1, num_nodes, vec, 1) * (num_cells, num_quads, num_nodes, 1, dim) -> (num_cells, num_quads, num_nodes, vec, dim)
+        u_grads = np.take(sol, self.cells, axis=0)[:, None, :, :, None] * self.shape_grads[:, :, :, None, :]
+        u_grads = np.sum(u_grads, axis=2) # (num_cells, num_quads, vec, dim)
+        return u_grads
+
     def compute_residual_vars_helper(self, sol, weak_form, **internal_vars):
         res = np.zeros((self.num_total_nodes, self.vec))
         weak_form = weak_form.reshape(-1, self.vec) # (num_cells*num_nodes, vec)
@@ -684,8 +703,9 @@ class FEM:
             values = values.reshape(-1, self.vec)
             res = res.at[selected_cells.reshape(-1)].add(values)
 
-        if 'body_vars' in internal_vars.keys(): # part 3 of the PDE
-            self.body_force = self.compute_body_force_by_sol(internal_vars['body_vars'], self.get_body_map())
+        self.body_force = self.compute_body_force_by_fn()
+        if 'body' in internal_vars.keys():
+            self.body_force = self.compute_body_force_by_sol(internal_vars['body'], self.get_body_map())
 
         self.neumann = self.compute_Neumann_integral_vars(**internal_vars)
         # part 2 of the PDE
@@ -728,3 +748,37 @@ class FEM:
 
     def newton_update(self, sol): # Internal_vars have the updated parameters already [laplace]
         return self.compute_newton_vars(sol, **self.internal_vars)
+
+    def set_params(self, params):
+        """Used for solving inverse problems.
+        """
+        raise NotImplementedError("Child class must implement this function!")
+
+    def print_BC_info(self):
+        """Print boundary condition information for debugging purposes.
+        """
+        if hasattr(self, 'neumann_boundary_inds_list'):
+            print(f"\n\n### Neumann B.C. is specified")
+            for i in range(len(self.neumann_boundary_inds_list)):
+                print(f"\nNeumann Boundary part {i + 1} information:")
+                print(self.neumann_boundary_inds_list[i])
+                print(f"Array.shape = (num_selected_faces, 2) = {self.neumann_boundary_inds_list[i].shape}")
+                print(f"Interpretation:")
+                print(f"    Array[i, 0] returns the global cell index of the ith selected face")
+                print(f"    Array[i, 1] returns the local face index of the ith selected face")
+        else:
+            print(f"\n\n### No Neumann B.C. found.")
+
+        if len(self.node_inds_list) != 0:
+            print(f"\n\n### Dirichlet B.C. is specified")
+            for i in range(len(self.node_inds_list)):
+                print(f"\nDirichlet Boundary part {i + 1} information:")
+                bc_array = onp.stack([self.node_inds_list[i], self.vec_inds_list[i], self.vals_list[i]]).T
+                print(bc_array)
+                print(f"Array.shape = (num_selected_dofs, 3) = {bc_array.shape}")
+                print(f"Interpretation:")
+                print(f"    Array[i, 0] returns the node index of the ith selected dof")
+                print(f"    Array[i, 1] returns the vec index of the ith selected dof")
+                print(f"    Array[i, 2] returns the value assigned to ith selected dof")
+        else:
+            print(f"\n\n### No Dirichlet B.C. found.")
